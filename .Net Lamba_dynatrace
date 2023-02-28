@@ -1,0 +1,41 @@
+using OpenTelemetry;
+using OpenTelemetry.Exporter;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Trace;
+using System.Diagnostics;
+
+// Set up the OpenTelemetry SDK with the Dynatrace exporter
+var tracerProvider = Sdk.CreateTracerProviderBuilder()
+    .AddSource("MyLambdaFunction")
+    .AddHttpClientInstrumentation()
+    .AddAspNetCoreInstrumentation()
+    .AddOtlpExporter(options => {
+        options.Endpoint = new Uri("https://my-dynatrace-endpoint.com/v1/trace");
+        options.Headers = new Dictionary<string, string> {
+            {"Authorization", "Api-Token my-dynatrace-token"}
+        };
+    })
+    .Build();
+
+// Create a meter to capture metrics
+var meterProvider = Sdk.CreateMeterProviderBuilder()
+    .AddSource("MyLambdaFunction")
+    .AddOtlpExporter(options => {
+        options.Endpoint = new Uri("https://my-dynatrace-endpoint.com/v1/metrics");
+        options.Headers = new Dictionary<string, string> {
+            {"Authorization", "Api-Token my-dynatrace-token"}
+        };
+    })
+    .Build();
+
+// Capture a metric using the meter
+var meter = meterProvider.GetMeter("MyLambdaFunction.Metrics");
+var counter = meter.CreateCounter<double>("requests_total", "Total requests", "1");
+counter.Add(1);
+
+// Create a tracer and start a span
+var tracer = tracerProvider.GetTracer("MyLambdaFunction.Tracing");
+using (tracer.StartActiveSpan("my-operation"))
+{
+    // Perform some operation
+}
